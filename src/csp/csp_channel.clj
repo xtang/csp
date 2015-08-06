@@ -45,3 +45,16 @@
   (do
     (onto-chan ch (range 0 10))
     (<!! (async/into [] ch))))
+
+;;如果向一个缓存区已经满了的channel继续写入消息那么将会被阻塞 为了防止阻塞有两个策略
+;;丢弃之后插入的内容
+(let [dc (chan (dropping-buffer 5))]
+  (do
+    (onto-chan dc (range 0 10))
+    (<!! (async/into [] dc))))
+
+;;丢弃之前插入的内容
+(let [sc (chan (sliding-buffer 5))]
+  (do
+    (onto-chan sc (range 0 10))
+    (<!! (async/into [] sc))))
