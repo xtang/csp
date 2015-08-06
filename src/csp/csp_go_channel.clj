@@ -65,3 +65,57 @@
         (recur)))))
 
 (prn-primes 100)
+
+;;一个go block中调度多个channel
+(let [ch1 (chan)
+      ch2 (chan)]
+  (do (go-loop []
+        (alt!
+          ch1 ([x] (println "Read" x "from channel 1"))
+          ch2 ([x] (println "Twice" x "is" (* x 2))))
+        (recur))
+      (>!! ch1 "foo")
+      (>!! ch2 3)
+      (>!! ch1 "haha")
+      (>!! ch2 6)))
+
+;;timeout
+;;timeout接收一个超时时间(以毫秒为单位) 超时之后就会返回一个channel
+(time (<!! (timeout 10000)))
+
+;;timeout和alt!一起使用可以为channel操作设置超时时间
+;;假如在指定时间没有往ch放入数据 那么就会直接打印Timed out
+(let [ch (chan)
+      t (timeout 10000)]
+  (do (go
+        (alt!
+          ch ([x] (println "Read" x "from channel"))
+          t (println "Timed out")))
+      (Thread/sleep 5000)
+      (>!! ch 3)))
+
+;;使用timeout来实现在规定超时时间内获取尽可能多的素数的功能
+(defn get-primes-infinit
+  []
+  (let [primes (chan)
+        numbers (to-chan (iterate inc 2))]
+    (go-loop [ch numbers
+              prime (<! ch)]
+      (if prime
+        (do
+          (>! primes prime)
+          (let [filter-numbers (remove< (partial factor? prime) ch)]
+            (recur filter-numbers (<! filter-numbers))))
+        (close! primes)))
+    primes))
+
+(defn prn-primes-infinit
+  []
+  (let [primes (get-primes-infinit)
+        limit (timeout 10000)]
+    (loop []
+      (alt!! :priority true
+        limit nil
+        primes ([prime] (println prime) (recur))))))
+
+(prn-primes-infinit)
