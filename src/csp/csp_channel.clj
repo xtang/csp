@@ -12,6 +12,12 @@
 
 ;;channel with buffer (async)
 ;;从已经关闭的空的channel中读出来的消息将会是nil 如果从未关闭的空的channel中读消息将会一直阻塞 直到有消息被放入channel中
+(let [ch (chan)]
+  (do
+    (close! ch)
+    (println (<!! ch))))
+;;nil
+
 (let [bc (chan 5)]
   (do
     (>!! bc 0)
@@ -46,6 +52,7 @@
     (onto-chan ch (range 0 10))
     (<!! (async/into [] ch))))
 
+;;dropping-buffer和sliding-buffer第一次运行都会有问题 不会把多余的去掉
 ;;如果向一个缓存区已经满了的channel继续写入消息那么将会被阻塞 为了防止阻塞有两个策略
 ;;丢弃之后插入的内容
 (let [dc (chan (dropping-buffer 5))]

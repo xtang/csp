@@ -80,7 +80,7 @@
       (>!! ch2 6)))
 
 ;;timeout
-;;timeout接收一个超时时间(以毫秒为单位) 超时之后就会返回一个channel
+;;timeout会返回一个channel 这个channel在指定时间(以毫秒为单位)之后就会被关闭
 (time (<!! (timeout 10000)))
 
 ;;timeout和alt!一起使用可以为channel操作设置超时时间
