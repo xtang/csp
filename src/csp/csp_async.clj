@@ -1,7 +1,9 @@
 (ns csp.csp-async
   (:require [clojure.core.async :as async :refer :all
              :exclude [map into reduce merge partition partition-by take]]
-            [org.httpkit.client :as http]))
+            [org.httpkit.client :as http]
+            [clojure.java.io :as io])
+  (:import [com.sun.syndication.io XmlReader SyndFeedInput]))
 
 ;;异步轮询
 ;;这和在go中使用alt!不同 这里的timeout会阻塞一整个go中的上下文执行 而用alt!可以让go中的各个channel在不同的上下文下 而一旦超时了 就一起返回结束了
@@ -71,3 +73,46 @@
     ch))
 
 ;;(http-get "http://baidu.com")
+
+(def poll-interval 1)
+
+(defn get-links [feed]
+  (map #(.getLink %) (.getEntries feed)))
+
+(defn parse-feed [body]
+  (let [reader (XmlReader. (io/input-stream (.getBytes body)))]
+    (.build (SyndFeedInput.) reader)))
+
+(defn poll-feed
+  [url]
+  (let [ch (chan)]
+    (poll poll-interval
+      (when-let [response (<! (http-get url))]
+        (let [feed (parse-feed (:body response))]
+          (do (prn "get feed" (get-links feed))
+              ;;有一个close?参数可以用来设置用onto-chan往channel中压入消息之后是否关闭channel
+              (onto-chan ch (get-links feed) false)))))
+    ch))
+
+(fn []
+  (let [feed (poll-feed "http://www.cbsnews.com/latest/rss/main")]
+    (loop []
+      (when-let [url (<!! feed)]
+        (prn url)
+        (recur)))))
+
+;;对解析feed得到的链接去重
+(defn new-links
+  [url]
+  (let [in (poll-feed url)
+        out (chan)]
+    (go-loop [links #{}]
+      (let [link (<! in)]
+        (prn "links -> " links)
+        (if (contains? links link)
+          (recur links)
+          (do
+            (prn "link -> " link)
+            (>! out link)
+            (recur (conj links link))))))
+    out))

@@ -2,6 +2,6 @@
   (:require [clojure.test :refer :all]
             [csp.core :refer :all]))
 
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+(deftest cota-test
+  (testing "get words from text"
+    (is (= (count (get-words "go channel async")) 3))))
