@@ -4,7 +4,8 @@
             [clojure.java.io :as io]
             [csp.csp-async :refer [http-get new-links]]))
 
-(defn get-words [text]
+(defn get-words
+  [text]
   (re-seq #"\w+" text))
 
 (defn get-counts
@@ -14,9 +15,8 @@
           (let [url (<! urls)]
             (when-let [response (<! (http-get url))]
               (let [c (count (get-words (:body response)))]
-                (do
-                  (prn url c)
-                  (>! counts [url c])))))))))
+                (>! counts [url c]))))))
+    counts))
 
 (defn get-counts-for-feeds
   [feeds-file]

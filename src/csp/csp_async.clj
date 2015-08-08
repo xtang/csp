@@ -9,8 +9,8 @@
 ;;这和在go中使用alt!不同 这里的timeout会阻塞一整个go中的上下文执行 而用alt!可以让go中的各个channel在不同的上下文下 而一旦超时了 就一起返回结束了
 ;;所以这里的timeout的作用是做到间隔一段时间执行一段行为 而在alt中的timeout则是用来设置一个超时阈值 超过这个时间 所有alt中其他的channel都将失效被释放
 (defn poll-fn
-  [internal action]
-  (let [seconds (* internal 1000)]
+  [interval action]
+  (let [seconds (* interval 1000)]
     (go (while true
           (action)
           (<! (timeout seconds))))))
@@ -26,10 +26,10 @@
 ;;但是可以利用macro将外部的<! >!等注入到go block中 反正只要runtime的时候<! >!是在go block中执行的就行了
 (defmacro poll
   [interval & body]
-  `(let [second# (* ~interval 1000)]
+  `(let [seconds# (* ~interval 1000)]
      (go (while true
            (do ~@body)
-           (<! (timeout second#))))))
+           (<! (timeout seconds#))))))
 
 ;;每隔10秒进行轮询操作并且可以从外部的channel中拿出值
 (defn poll-and-read
@@ -61,8 +61,7 @@
   (println "Error" (:status response) "retrieving URL:" (get-in response [:opts :url])))
 
 ;;put!只是向channel中扔一个消息 不在乎仍消息的结果 所以put!操作既不会阻塞也不暂停(上下文切换)
-(defn http-get
-  [url]
+(defn http-get [url]
   (let [ch (chan)]
     (http/get url (fn [response]
                     (if (= 200 (:status response))
@@ -74,12 +73,14 @@
 
 ;;(http-get "http://baidu.com")
 
-(def poll-interval 1)
+(def poll-interval 60)
 
-(defn get-links [feed]
+(defn get-links
+  [feed]
   (map #(.getLink %) (.getEntries feed)))
 
-(defn parse-feed [body]
+(defn parse-feed
+  [body]
   (let [reader (XmlReader. (io/input-stream (.getBytes body)))]
     (.build (SyndFeedInput.) reader)))
 
@@ -89,9 +90,7 @@
     (poll poll-interval
       (when-let [response (<! (http-get url))]
         (let [feed (parse-feed (:body response))]
-          (do (prn "get feed" (get-links feed))
-              ;;有一个close?参数可以用来设置用onto-chan往channel中压入消息之后是否关闭channel
-              (onto-chan ch (get-links feed) false)))))
+          (onto-chan ch (get-links feed) false))))
     ch))
 
 (fn []
@@ -108,11 +107,9 @@
         out (chan)]
     (go-loop [links #{}]
       (let [link (<! in)]
-        (prn "links -> " links)
         (if (contains? links link)
           (recur links)
           (do
-            (prn "link -> " link)
             (>! out link)
             (recur (conj links link))))))
     out))
