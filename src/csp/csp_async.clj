@@ -90,7 +90,9 @@
     (poll poll-interval
       (when-let [response (<! (http-get url))]
         (let [feed (parse-feed (:body response))]
-          (onto-chan ch (get-links feed) false))))
+          (do (prn "get links" (get-links feed))
+              ;;有一个close?参数可以用来设置用onto-chan往channel中压入消息之后是否关闭channel
+              (onto-chan ch (get-links feed) false)))))
     ch))
 
 (fn []
@@ -110,6 +112,7 @@
         (if (contains? links link)
           (recur links)
           (do
+            (prn "link -> " link)
             (>! out link)
             (recur (conj links link))))))
     out))
